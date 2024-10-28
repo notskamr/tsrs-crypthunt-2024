@@ -1,0 +1,72 @@
+---
+import Header from "@/components/Header.astro";
+import Footer from "@/components/Footer.astro";
+import Overlay from "@/components/Overlay.svelte";
+import RootLayout from "@/layouts/RootLayout.astro";
+import type { BorderColor, ShadowColor } from "@/utils/types";
+import { HOUSE_COLOR_MAPPINGS } from "@/utils/config";
+interface Props {
+  title: string;
+  header?: boolean;
+  footer?: boolean;
+  displayLeaderboard?: boolean;
+  teamId?: number;
+}
+
+const {
+  title,
+  header = true,
+  footer = true,
+  displayLeaderboard = true,
+  teamId: previewTeamId,
+} = Astro.props;
+const { user, session } = Astro.locals;
+const teamId = previewTeamId ?? user?.teamId;
+---
+
+<RootLayout {title}>
+  <Overlay client:load />
+  {
+    header &&
+      (teamId ? (
+        <Header
+          displayLeaderboard={!!displayLeaderboard}
+          borderColor={{ default: HOUSE_COLOR_MAPPINGS[teamId - 1].color(1) }}
+          shadowColor={{ default: HOUSE_COLOR_MAPPINGS[teamId - 1].color(0.1) }}
+        />
+      ) : (
+        <Header displayLeaderboard={!!displayLeaderboard} />
+      ))
+  }
+  <slot name="seo" slot="seo" />
+  <slot name="headBottom" slot="headBottom" />
+  <main class="grow-[1] flex flex-col p-4">
+    <slot />
+  </main>
+  {
+    footer &&
+      (teamId ? (
+        <Footer
+          borderColor={{ default: HOUSE_COLOR_MAPPINGS[teamId - 1].color(1) }}
+        />
+      ) : (
+        <Footer />
+      ))
+  }
+</RootLayout>
+
+<script>
+  import { FLUX_ID } from "@/globals";
+
+  const QuestionListener = new EventSource(
+    `https://flux.vsahni.me/flux/${FLUX_ID}`
+  );
+  QuestionListener.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    const TeamIncrementedEvent = new CustomEvent("crypthunt:team-leveled-up", {
+      detail: data,
+    });
+    console.log("TeamIncrementedEvent", TeamIncrementedEvent);
+    window.dispatchEvent(TeamIncrementedEvent);
+  };
+</script>

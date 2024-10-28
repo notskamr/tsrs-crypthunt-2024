@@ -1,0 +1,79 @@
+---
+import QuestionDisplay from "@/components/QuestionDisplay.astro";
+import { db } from "@/db";
+import type { House } from "@/db/schema";
+import MainLayout from "@/layouts/MainLayout.astro";
+
+let teamId: number = Astro.url.searchParams.get("teamId") as any;
+let questionId: string | null = Astro.url.searchParams.get("questionId");
+
+if (teamId) {
+  teamId = Number(teamId as any);
+  teamId = isNaN(teamId) ? 0 : teamId;
+}
+
+const question = questionId
+  ? await db.query.questions.findFirst({
+      where: (question, { eq }) => eq(question.id, questionId),
+    })
+  : null;
+
+const previewQuestion = question
+  ? question
+  : {
+      id: "preview-question",
+      content: "This is a preview question",
+      answer: "This is a preview answer",
+      points: 0,
+      position: 1,
+      type: "online",
+    };
+
+const team = (await db.query.teams.findFirst({
+  where: (team, { eq }) => eq(team.id, teamId),
+  with: {
+    currentQuestion: true,
+  },
+})) || {
+  id: 0,
+  name: "Preview Team" as House,
+  points: 0,
+  bannedUntil: null,
+  currentQuestionId: "preview-question",
+  currentQuestion: previewQuestion,
+};
+
+if (!question && !team.currentQuestion) {
+  team.currentQuestion = previewQuestion;
+  team.currentQuestion.content =
+    "This is a preview question - the team has not started yet";
+}
+if (question) {
+  team.currentQuestion = question;
+}
+---
+
+<MainLayout teamId={team?.id ?? 0} title="Crypt Hunt - Admin - Play Preview">
+  <QuestionDisplay
+    user={{
+      id: "preview",
+      role: "player",
+      createdAt: new Date(),
+      team: {
+        ...team,
+        currentQuestionId: "preview-question",
+        currentQuestion: {
+          ...team.currentQuestion,
+          id: "preview-question",
+        },
+      } as any,
+      teamId: 0,
+      username: "Preview User",
+    }}
+  />
+</MainLayout>
+
+<script>
+  const button = document.querySelector("button");
+  button!.disabled = true;
+</script>

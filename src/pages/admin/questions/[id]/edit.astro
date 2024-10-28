@@ -1,0 +1,178 @@
+---
+import { db } from "@/db";
+import MainLayout from "@/layouts/MainLayout.astro";
+import { Question } from "@/utils/models/Question";
+
+const { id } = Astro.params;
+if (!id) {
+  return new Response('The "id" parameter is required', { status: 400 });
+}
+
+const question = await db.query.questions.findFirst({
+  where: (q, { eq }) => eq(q.id, id),
+});
+if (!question) {
+  return new Response("Question not found", { status: 404 });
+}
+import "easymde/dist/easymde.min.css";
+---
+
+<MainLayout title="Crypt Hunt - Admin - Edit Question">
+  <question-meta data-id={question.id} hidden aria-hidden="true">
+  </question-meta>
+  <div class="mx-auto max-w-xl w-full flex flex-col justify-center mt-4">
+    <div class="flex flex-col sm:flex-row w-full justify-between items-center">
+      <a
+        href={`/admin/questions#question-${question.id}`}
+        class="text-blue-500 dark:text-blue-400 hover:underline"
+      >
+        See Questions
+      </a>
+      <h1 class="text-3xl font-bold text-neutral-900 dark:text-neutral-100">
+        View Question
+      </h1>
+    </div>
+
+    <form class="mt-4">
+      <label for="position" class="block font-medium"> Position </label>
+      <input
+        type="number"
+        step="any"
+        id="position"
+        name="position"
+        required
+        value={question.position}
+        class="mt-1 block w-full border border-neutral-600 border-opacity-70 p-3 rounded-tl-md rounded-br-md bg-neutral-100 dark:bg-neutral-900"
+      />
+      <label for="title" class="block font-medium mt-4"> Title </label>
+      <input
+        type="text"
+        id="title"
+        name="title"
+        value={question.title}
+        placeholder="Eg. 'First question' instead of the default 'Question 1'"
+        class="mt-1 block w-full border border-neutral-600 border-opacity-70 p-3 rounded-tl-md rounded-br-md bg-neutral-100 dark:bg-neutral-900 placeholder:overflow-x-auto"
+      />
+      <label for="points" class="block font-medium mt-4"> Points </label>
+      <input
+        type="number"
+        id="points"
+        name="points"
+        required
+        value={question.points}
+        class="mt-1 block w-full border border-neutral-600 border-opacity-70 p-3 rounded-tl-md rounded-br-md bg-neutral-100 dark:bg-neutral-900"
+      />
+      <label for="answer" class="block font-medium mt-4"> Answer </label>
+      <input
+        type="text"
+        id="answer"
+        name="answer"
+        required
+        value={question.answer}
+        class="mt-1 block w-full border border-neutral-600 border-opacity-70 p-3 rounded-tl-md rounded-br-md bg-neutral-100 dark:bg-neutral-900"
+      />
+      <label for="type" class="block font-medium mt-4"> Type </label>
+      <select
+        id="type"
+        required
+        name="type"
+        class="mt-1 block w-full border border-neutral-600 border-opacity-70 p-3 rounded-tl-md rounded-br-md bg-neutral-100 dark:bg-neutral-900"
+      >
+        <!-- A question can have a type of 'online' or 'offline' -->
+        <option value="online" selected={question.type === "online"}
+          >Online</option
+        >
+        <option value="offline" selected={question.type === "offline"}
+          >Offline</option
+        >
+      </select>
+      <div class="mt-6">
+        <textarea name="content" id="editor">{question.content}</textarea>
+      </div>
+      <button type="submit" class="btn default w-full mt-4 text-xl">
+        Save
+      </button>
+    </form>
+    <script>
+      import EasyMDE from "easymde";
+      const easyMDE = new EasyMDE({
+        placeholder: "Question content...",
+      });
+
+      const question =
+        document.querySelector<HTMLElement>("question-meta")!.dataset;
+      const form = document.querySelector("form");
+      form?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+        const parsedData = {
+          ...data,
+          content: easyMDE.value(),
+          position: Number(data.position),
+          points: Number(data.points),
+          answer: data.answer,
+        };
+        console.log(parsedData);
+        if (!parsedData.position || !parsedData.points || !parsedData.answer) {
+          alert("Please fill all the fields");
+          return;
+        }
+
+        const response = await fetch(`/api/admin/questions/${question.id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(parsedData),
+        });
+        if (response.ok) {
+          alert("Question saved successfully");
+          window.location.reload();
+        } else {
+          alert("Failed to save question");
+        }
+      });
+    </script>
+    <style>
+      #editor {
+        @apply w-full border border-neutral-600 border-opacity-70 p-3 rounded-tl-md rounded-br-md h-72 overflow-y-auto bg-neutral-200 dark:bg-neutral-900;
+      }
+
+      .btn {
+        @apply py-2 px-4 rounded-tl-md rounded-br-md duration-150 border border-neutral-700;
+      }
+
+      .default {
+        @apply bg-black text-white dark:bg-white hover:invert dark:text-black;
+      }
+
+      .important {
+        @apply bg-blue-500 text-white hover:brightness-110;
+      }
+
+      .danger {
+        @apply bg-red-500 text-white hover:saturate-150;
+      }
+    </style>
+    <style is:global>
+      *:focus {
+        outline: none;
+      }
+      .editor-preview-full {
+        @apply prose;
+      }
+      .editor-toolbar {
+        @apply bg-neutral-200 dark:bg-neutral-600;
+      }
+
+      .editor-toolbar button:hover {
+        @apply bg-neutral-300 dark:bg-neutral-700;
+      }
+
+      .editor-toolbar button.active {
+        @apply bg-neutral-400 dark:bg-neutral-800;
+      }
+    </style>
+  </div>
+</MainLayout>

@@ -1,0 +1,207 @@
+---
+import MainLayout from "@/layouts/MainLayout.astro";
+
+import { db } from "@/db";
+const { id } = Astro.params;
+
+if (!id) {
+  return new Response(null, {
+    status: 400,
+  });
+}
+
+const user = await db.query.users.findFirst({
+  where: (sessions, { eq }) => eq(sessions.id, id),
+  with: {
+    team: true,
+    sessions: {
+      orderBy: (s, { desc }) => [desc(s.createdAt)],
+    },
+    responses: {
+      orderBy: (r, { desc }) => [desc(r.createdAt)],
+      limit: 1,
+    },
+  },
+});
+
+if (!user) {
+  return new Response(null, {
+    status: 404,
+  });
+}
+
+interface DisplayData {
+  label: string;
+  value: string;
+  href?: string;
+  customClasses?: string;
+}
+
+const displayData: DisplayData[] = [
+  {
+    label: "ID",
+    value: user.id,
+  },
+  {
+    label: "Username",
+    value: user.username,
+  },
+  {
+    label: "Role",
+    value: user.role,
+    customClasses: "capitalize",
+  },
+  {
+    label: "Team",
+    value: user.team?.name || "N/A",
+    href: user.team ? `/admin/teams/${user.team.id}` : undefined,
+    customClasses: "capitalize",
+  },
+  {
+    label: "Created At",
+    value: user.createdAt.toLocaleString(),
+  },
+  {
+    label: "Last Seen",
+    value:
+      user.sessions.length > 0
+        ? new Date(user.sessions[0].createdAt).toLocaleString()
+        : "N/A",
+  },
+  {
+    label: "Session Count",
+    value: user.sessions.length.toString(),
+  },
+  {
+    label: "Latest IP Address",
+    value: user.sessions.length > 0 ? user.sessions[0].ipAddress : "N/A",
+  },
+  {
+    label: "Latest Response",
+    value:
+      user.responses.length > 0
+        ? user.responses[0].createdAt.toLocaleString()
+        : "N/A",
+    href:
+      user.responses.length > 0
+        ? `/admin/responses/${user.responses[0].id}`
+        : undefined,
+  },
+];
+---
+
+<MainLayout title={`Crypt Hunt - Admin - User (${user.id})`}>
+  <div
+    class="w-full max-w-xl mx-auto flex flex-col items-center mt-8 mb-4 relative"
+  >
+    <session-meta
+      data-user-id={user.id}
+      class="hidden"
+      hidden
+      aria-hidden="true"></session-meta>
+    <a
+      href="/admin/users"
+      class="sm:absolute top-2 left-0 text-blue-500 dark:text-blue-400 hover:underline text-lg"
+      >See Users</a
+    >
+    <h1 class="text-4xl font-semibold">View User</h1>
+    <div class="w-full mt-8 text-center grid grid-cols-1 sm:text-lg">
+      {
+        displayData.map(({ label, value, href, customClasses }) => (
+          <div
+            onclick={`${href ? `window.location.href = "${href}"` : ""}`}
+            class:list={[
+              "flex justify-between p-4 gap-3 border-b border-neutral-700 hover:bg-black/5 dark:hover:bg-white/5",
+              href ? "cursor-pointer" : undefined,
+              customClasses,
+            ]}
+          >
+            <span class="font-semibold">{label}</span>
+            <span class="max-w-[14rem] overflow-x-auto text-right">
+              {value}
+            </span>
+          </div>
+        ))
+      }
+    </div>
+    <div class="flex gap-4 mt-8">
+      <a
+        href={`/admin/sessions?userId=${user.id}`}
+        class="btn important text-sm sm:text-base"
+      >
+        Sessions
+      </a>
+      <a href={`/admin/users/${id}/edit`} class="btn text-sm sm:text-base">
+        Edit User
+      </a>
+    </div>
+    <div class="flex mt-4 gap-4">
+      <button id="delete" class="btn danger text-sm sm:text-base">
+        Delete User
+      </button>
+      <button id="delete-all" class="btn hover:bg-red-600 text-sm saturate-200">
+        Delete All Sessions
+      </button>
+    </div>
+  </div>
+
+  <script>
+    const userId =
+      document.querySelector<HTMLElement>("session-meta")?.dataset.userId;
+
+    document.getElementById("delete")?.addEventListener("click", async () => {
+      const confirmed = confirm("Are you sure you want to delete this user?");
+
+      if (!confirmed) return;
+
+      const response = await fetch(`/api/admin/users/${userId}`, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        window.location.href = "/admin/users";
+      } else {
+        alert("Failed to delete user");
+      }
+    });
+
+    document
+      .getElementById("delete-all")
+      ?.addEventListener("click", async () => {
+        if (!userId) return;
+
+        const confirmed = confirm(
+          "Are you sure you want to delete all sessions for this user?"
+        );
+
+        if (!confirmed) return;
+
+        const response = await fetch(`/api/admin/sessions/${userId}/all`, {
+          method: "DELETE",
+        });
+
+        if (response.ok) {
+          window.location.href = "/admin/sessions";
+        } else {
+          alert("Failed to delete sessions");
+        }
+      });
+  </script>
+  <style>
+    .btn {
+      @apply py-2 px-4 rounded-tl-md rounded-br-md duration-150 border border-neutral-700 flex items-center;
+    }
+
+    .default {
+      @apply bg-black text-white dark:bg-white hover:invert dark:text-black;
+    }
+
+    .important {
+      @apply bg-blue-500 text-white hover:brightness-110;
+    }
+
+    .danger {
+      @apply bg-red-500 text-white hover:saturate-150;
+    }
+  </style>
+</MainLayout>

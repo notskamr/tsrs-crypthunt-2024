@@ -1,0 +1,58 @@
+---
+import MainLayout from "@/layouts/MainLayout.astro";
+import SessionsTable from "@/components/AdminTables/SessionsTable.svelte";
+import { db } from "@/db";
+
+export type SessionTableData = typeof sessions;
+
+const filterByUserId = Astro.url.searchParams.get("userId");
+
+const sessions = await db.query.sessions.findMany({
+  orderBy: (sessions, { desc }) => [desc(sessions.createdAt)],
+  where: filterByUserId
+    ? (sessions, { eq }) => eq(sessions.userId, filterByUserId)
+    : undefined,
+  with: {
+    user: {
+      with: {
+        team: true,
+      },
+    },
+  },
+});
+---
+
+<MainLayout title="Crypt Hunt - Admin - Sessions">
+  <div
+    class="w-full max-w-3xl mx-auto flex flex-col items-center mt-8 mb-4 relative"
+  >
+    <a
+      href="/admin"
+      class="sm:absolute top-2 left-0 text-blue-500 dark:text-blue-400 hover:underline text-lg"
+      >See Admin</a
+    >
+    <h1 class="text-4xl font-semibold">Sessions</h1>
+    <div class="w-full mt-8">
+      <SessionsTable data={sessions} client:load />
+    </div>
+    <div class="mt-4 w-full flex flex-col"></div>
+  </div>
+</MainLayout>
+
+<style>
+  .btn {
+    @apply py-2 px-4 rounded-tl-md rounded-br-md duration-150 border border-neutral-700;
+  }
+
+  .default {
+    @apply bg-black text-white dark:bg-white hover:invert dark:text-black;
+  }
+
+  .important {
+    @apply bg-blue-500 text-white hover:brightness-110;
+  }
+
+  .danger {
+    @apply bg-red-500 text-white hover:saturate-150;
+  }
+</style>

@@ -1,0 +1,129 @@
+---
+interface Props {
+  class?: string;
+  size?: Size;
+}
+
+interface Size {
+  default: AvailableSizeKeys;
+  sm?: AvailableSizeKeys;
+}
+
+export enum Sizes {
+  sm = "text-sm",
+  base = "text-base",
+  lg = "text-lg",
+  xl = "text-xl",
+  "2xl" = "text-2xl",
+  "3xl" = "text-3xl",
+  "4xl" = "text-4xl",
+  "5xl" = "text-5xl",
+  "6xl" = "text-6xl",
+}
+export enum AvailableSizes {
+  lg = "text-lg",
+  xl = "text-xl",
+  "2xl" = "text-2xl",
+  "3xl" = "text-3xl",
+  "4xl" = "text-4xl",
+  "5xl" = "text-5xl",
+  "6xl" = "text-6xl",
+}
+
+// enum for keys of the sizes
+export enum AvailableSizeKeys {
+  lg = "lg",
+  xl = "xl",
+  "2xl" = "2xl",
+  "3xl" = "3xl",
+  "4xl" = "4xl",
+  "5xl" = "5xl",
+  "6xl" = "6xl",
+}
+
+// Define the order of sizes
+const sizeOrder: Sizes[] = [
+  Sizes.sm,
+  Sizes.base,
+  Sizes.lg,
+  Sizes.xl,
+  Sizes["2xl"],
+  Sizes["3xl"],
+  Sizes["4xl"],
+  Sizes["5xl"],
+  Sizes["6xl"],
+];
+
+const sizeHeight = {
+  [AvailableSizes.lg]: "h-6",
+  [AvailableSizes.xl]: "h-7",
+  [AvailableSizes["2xl"]]: "h-8",
+  [AvailableSizes["3xl"]]: "h-9",
+  [AvailableSizes["4xl"]]: "h-10",
+  [AvailableSizes["5xl"]]: "h-14",
+  [AvailableSizes["6xl"]]: "h-20",
+};
+
+const smSizeHeight = {
+  [AvailableSizes.lg]: "sm:h-6",
+  [AvailableSizes.xl]: "sm:h-7",
+  [AvailableSizes["2xl"]]: "sm:h-8",
+  [AvailableSizes["3xl"]]: "sm:h-9",
+  [AvailableSizes["4xl"]]: "sm:h-10",
+  [AvailableSizes["5xl"]]: "sm:h-14",
+  [AvailableSizes["6xl"]]: "sm:h-20",
+};
+
+const textClasses =
+  "text-sm text-base text-lg text-xl text-2xl text-3xl text-4xl text-5xl text-6xl";
+const smTextClasses =
+  "sm:text-sm sm:text-base sm:text-lg sm:text-xl sm:text-2xl sm:text-3xl sm:text-4xl sm:text-5xl sm:text-6xl";
+const roundedClasses =
+  "rounded-sm rounded-md rounded-lg rounded-xl rounded-2xl rounded-3xl rounded-4xl rounded-5xl rounded-6xl";
+
+const { class: class_, size: size = { default: AvailableSizeKeys["4xl"] } } =
+  Astro.props;
+
+const largerSize = Sizes[size.default as unknown as AvailableSizeKeys];
+// get the smaller size which is 2 levels below the current size -> Sizes is an enum in typescript it cannot be indexed
+const smallerSize = sizeOrder[sizeOrder.indexOf(largerSize) - 2];
+
+const height = sizeHeight[largerSize as unknown as AvailableSizes] as string;
+
+const largerSmSize = size.sm
+  ? Sizes[size.sm as unknown as AvailableSizeKeys]
+  : null;
+const smallerSmSize = size.sm
+  ? sizeOrder[sizeOrder.indexOf(largerSmSize!) - 2]
+  : null;
+
+const smHeight = smSizeHeight[
+  largerSmSize as unknown as AvailableSizes
+] as string;
+---
+
+<div class:list={["flex flex-row items-center w-fit", class_]}>
+  <h1
+    class:list={[
+      "font-bold text-left px-2 pr-4 bg-neutral-50 dark:bg-neutral-950 border border-neutral-500 dark:border-neutral-700 rounded-t-md flex items-center",
+      `sm:${largerSmSize}`,
+      height,
+      smHeight,
+      largerSize,
+      // `sm:${smSizeHeight[largerSmSize as unknown as AvailableSizes]}`,
+    ]}
+  >
+    CRYPT HUNT
+  </h1>
+  <span
+    class:list={[
+      "relative right-2 px-2 grow-[1] flex items-center justify-center bg-neutral-950 dark:bg-neutral-50 dark:text-black border border-neutral-500 dark:border-neutral-700 text-white rounded-r-md rounded-b-md rounded-t-none rounded-l-none",
+      `sm:${smallerSmSize}`,
+      height,
+      smHeight,
+      smallerSize,
+      // `sm:${smSizeHeight[smallerSmSize as unknown as AvailableSizes]}`,
+    ]}
+    >2024
+  </span>
+</div>

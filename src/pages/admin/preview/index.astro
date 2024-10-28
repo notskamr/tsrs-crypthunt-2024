@@ -1,0 +1,49 @@
+---
+import { db } from "@/db";
+import MainLayout from "@/layouts/MainLayout.astro";
+import { titleCase } from "@/utils/misc";
+const teams = await db.query.teams.findMany();
+
+const questionId = Astro.url.searchParams.get("questionId");
+---
+
+<MainLayout title="Crypt Hunt - Admin - Preview">
+  <div
+    class="flex flex-col grow-[1] self-center justify-self-center items-center justify-center text-center mt-8 relative bottom-8"
+  >
+    <h1 class="text-4xl font-bold">Preview As</h1>
+
+    <div class="flex flex-row justify-center mt-4">
+      <div class="flex flex-col">
+        <div class="flex flex-row">
+          <div class="flex flex-col">
+            <select
+              id="team"
+              name="team"
+              class="mt-2 bg-black/5 px-4 py-2 text-xl"
+            >
+              <option value="">Select a team</option>
+              <option value="0">Preview</option>
+              {
+                teams.map((team) => (
+                  <option value={team.id}>{titleCase(team.name)}</option>
+                ))
+              }
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+    <metadata data-question-id={questionId}> </metadata>
+  </div>
+</MainLayout>
+<script>
+  document.getElementById("team")?.addEventListener("change", (e: Event) => {
+    const teamId = (e.target as HTMLSelectElement).value;
+    const questionId = document
+      .querySelector("metadata")
+      ?.getAttribute("data-question-id");
+    if (teamId === "") return;
+    window.location.href = `/admin/preview/play?teamId=${teamId}&questionId=${questionId}`;
+  });
+</script>

@@ -1,0 +1,156 @@
+---
+import { db } from "@/db";
+import MainLayout from "@/layouts/MainLayout.astro";
+
+const { id } = Astro.params;
+if (!id) {
+  return new Response('The "id" parameter is required', { status: 400 });
+}
+
+const user = await db.query.users.findFirst({
+  where: (users, { eq }) => eq(users.id, id),
+});
+
+const teams = await db.query.teams.findMany();
+
+if (!user) {
+  return new Response("User not found", { status: 404 });
+}
+
+const roles = ["player", "admin", "oc"];
+---
+
+<MainLayout title="Crypt Hunt - Admin - Edit User">
+  <user-meta data-id={user.id} hidden aria-hidden="true"> </user-meta>
+  <div class="mx-auto max-w-xl w-full flex flex-col justify-center mt-4">
+    <div class="flex flex-col sm:flex-row w-full justify-between items-center">
+      <a
+        href={`/admin/users/${user.id}`}
+        class="text-blue-500 dark:text-blue-400 hover:underline"
+      >
+        See User
+      </a>
+      <h1 class="text-3xl font-bold text-neutral-900 dark:text-neutral-100">
+        Edit User
+      </h1>
+    </div>
+
+    <form class="mt-6">
+      <label for="username" class="block font-medium"> Username </label>
+      <input
+        id="username"
+        required
+        name="username"
+        minlength="3"
+        value={user.username}
+        class="mt-1 block w-full border border-neutral-600 border-opacity-70 p-3 rounded-tl-md rounded-br-md bg-neutral-100 dark:bg-neutral-900"
+      />
+      <label for="type" class="block font-medium mt-4"> Role </label>
+      <select
+        id="role"
+        required
+        name="role"
+        class="mt-1 block w-full border border-neutral-600 border-opacity-70 p-3 rounded-tl-md rounded-br-md bg-neutral-100 dark:bg-neutral-900 capitalize"
+      >
+        {
+          roles.map((role) => (
+            <option selected={role === user.role} value={role}>
+              {role}
+            </option>
+          ))
+        }
+      </select>
+      <label for="type" class="block font-medium mt-4"> Team </label>
+      <select
+        id="team"
+        required
+        name="team"
+        class="mt-1 block w-full border border-neutral-600 border-opacity-70 p-3 rounded-tl-md rounded-br-md bg-neutral-100 dark:bg-neutral-900 capitalize"
+      >
+        <option selected={user.teamId === null} value="none">None</option>
+        {
+          teams.map((team) => (
+            <option selected={user.teamId === team.id} value={team.id}>
+              {team.name}
+            </option>
+          ))
+        }
+      </select>
+      <button type="submit" class="btn default w-full mt-4 text-xl">
+        Save
+      </button>
+    </form>
+    <script>
+      const user = document.querySelector<HTMLElement>("user-meta")!.dataset;
+
+      const form = document.querySelector("form");
+      form?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const role = (document.querySelector("#role") as HTMLSelectElement)
+          .value;
+        const teamId = (document.querySelector("#team") as HTMLSelectElement)
+          .value;
+        const username = document.querySelector(
+          "#username"
+        ) as HTMLInputElement;
+        const response = await fetch(`/api/admin/users/${user.id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            role: role,
+            teamId: teamId === "none" ? null : Number(teamId),
+            username: username.value || null,
+          }),
+        });
+        if (response.ok) {
+          alert("User saved successfully");
+          window.location.reload();
+        } else {
+          alert("Failed to update user");
+        }
+      });
+    </script>
+    <style>
+      #editor {
+        @apply w-full border border-neutral-600 border-opacity-70 p-3 rounded-tl-md rounded-br-md h-72 overflow-y-auto bg-neutral-200 dark:bg-neutral-900;
+      }
+
+      .btn {
+        @apply py-2 px-4 rounded-tl-md rounded-br-md duration-150 border border-neutral-700;
+      }
+
+      .default {
+        @apply bg-black text-white dark:bg-white hover:invert dark:text-black;
+      }
+
+      .important {
+        @apply bg-blue-500 text-white hover:brightness-110;
+      }
+
+      .danger {
+        @apply bg-red-500 text-white hover:saturate-150;
+      }
+    </style>
+    <style is:global>
+      *:focus {
+        outline: none;
+      }
+      .editor-preview-full {
+        @apply prose;
+      }
+      .editor-toolbar {
+        @apply bg-neutral-200 dark:bg-neutral-600;
+      }
+
+      .editor-toolbar button:hover {
+        @apply bg-neutral-300 dark:bg-neutral-700;
+      }
+
+      .editor-toolbar button.active {
+        @apply bg-neutral-400 dark:bg-neutral-800;
+      }
+    </style>
+  </div>
+</MainLayout>

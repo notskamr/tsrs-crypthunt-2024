@@ -1,0 +1,110 @@
+---
+import type { ShadowColor, BorderColor } from "@/utils/types";
+
+import NewLogo from "./NewLogo.astro";
+import Title, { AvailableSizeKeys } from "./Title.astro";
+import Trophy from "./Icons/Trophy.astro";
+import HeaderLeaderboard from "./HeaderLeaderboard.svelte";
+
+import colors from "tailwindcss/colors";
+import { db } from "@/db";
+import { Team } from "@/utils/models/Team";
+import { HOUSE_COLOR_MAPPINGS } from "@/utils/config";
+
+interface Props {
+  shadowColor?: ShadowColor;
+  borderColor?: BorderColor;
+  displayLeaderboard: boolean;
+}
+
+const {
+  shadowColor = {
+    default: `rgb(0 0 0 / 0.05)`,
+    dark: `rgb(255 255 255 / 0.05)`,
+  },
+  borderColor = { default: `rgb(0 0 0 / 0.2)`, dark: `rgb(255 255 255 / 0.1)` },
+  displayLeaderboard,
+} = Astro.props;
+interface ITeam extends Team {
+  id: number;
+  color: string;
+  progress: number;
+}
+const teams = (await Team.top3Comparatively()) as unknown as ITeam[];
+
+// get colors for each team based on (teamId - 1) from HOUSE_COLOR_MAPPINGS, and put it back in teams respectively
+const teamColors = teams.map((team) => HOUSE_COLOR_MAPPINGS[team.id - 1]);
+teams.forEach((team, i) => {
+  team.color = teamColors[i].color(1);
+});
+
+if (teams.every((team) => isNaN(team.progress) && isNaN(teams[0].progress))) {
+  teams[0].color = colors.white;
+  teams[1].color = colors.black;
+  teams[2].color = colors.black;
+  teams[0].progress = 1;
+  teams[1].progress = 0.6;
+  teams[2].progress = 0.6;
+}
+---
+
+<header
+  class:list={[
+    "w-full bg-black/5 border-b-2 rounded-b-md backdrop-blur-sm shadow-2xl py-4 flex flex-row justify-between items-center xs:px-4 sm:px-8 relative z-[100]",
+  ]}
+>
+  <a
+    class="flex flex-row items-center justify-center w-fit relative xs:static right-4 xs:right-0 group scale-75 xs:scale-100"
+    href="/"
+  >
+    <NewLogo
+      class="w-8 sm:w-12 group-hover:saturate-150 duration-150 text-black group-hover:invert"
+      iconFill="white"
+    />
+    <Title
+      class="ml-2 sm:ml-4 group-hover:invert duration-150"
+      size={{
+        default: AvailableSizeKeys["2xl"],
+        sm: AvailableSizeKeys["4xl"],
+      }}
+    />
+  </a>
+  {
+    displayLeaderboard && (
+      <HeaderLeaderboard
+        first={{
+          color: teams[0].color,
+          progress: teams[0].progress,
+        }}
+        second={{
+          color: teams[1].color,
+          progress: teams[1].progress,
+        }}
+        third={{
+          color: teams[2].color,
+          progress: teams[2].progress,
+        }}
+        client:load
+      />
+    )
+  }
+</header>
+
+<style
+  define:vars={{
+    shadowColor: shadowColor.default,
+    shadowColorDark: shadowColor.dark ? shadowColor.dark : shadowColor.default,
+    borderColor: borderColor.default,
+    borderColorDark: borderColor.dark ? borderColor.dark : borderColor.default,
+    trophyColor: `currentColor`,
+    trophyColorDark: `currentColor`,
+  }}
+>
+  header {
+    @apply shadow-[var(--shadowColor)] border-[var(--borderColor)] dark:shadow-[var(--shadowColorDark)] dark:border-[var(--borderColorDark)];
+  }
+
+  .trophy {
+    @apply text-[var(--trophyColor)] dark:text-[var(--trophyColorDark)];
+  }
+</style>

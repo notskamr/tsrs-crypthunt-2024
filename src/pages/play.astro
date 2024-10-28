@@ -1,0 +1,296 @@
+---
+import QuestionDisplay from "@/components/QuestionDisplay.astro";
+import MainLayout from "@/layouts/MainLayout.astro";
+import { OC_ROLES } from "@/middleware";
+import { getExpandedUser } from "@/utils/funcs/question";
+import { kv } from "@/utils/kv";
+import { marked } from "marked";
+
+const { user: user_, session } = Astro.locals;
+
+if (!session || !user_) {
+  return Astro.redirect("/login", 302);
+}
+
+if (OC_ROLES.includes(user_.role)) {
+  return Astro.redirect("/admin", 302);
+}
+
+// const paused = (await kv.get("ch:paused")) === "1";
+
+const user = await getExpandedUser(user_);
+if (!user?.team) {
+  // error
+  return new Response("You're not in a team", { status: 400 });
+}
+
+let {
+  "ch:paused": _paused,
+  "ch:started": _hasStarted,
+  "ch:ended": _hasEnded,
+} = await kv.getMultiple(["ch:paused", `ch:started`, "ch:ended"]);
+const paused = _paused === "1";
+const hasStarted = _hasStarted === "1";
+const hasEnded = _hasEnded === "1";
+
+const hasFinished = user.team.hasFinished;
+
+const isBanned = user.team.bannedUntil
+  ? new Date(user.team.bannedUntil) > new Date()
+  : false;
+
+// regex to format the username into a name - eg. varun.sahni6547 -> varun sahni: basically, strip out all non alphabetical characters
+const name = user_.username.replace(/[^a-zA-Z]/g, " ").trim();
+
+const captain_usernames = [
+  "rivan.nath4732",
+  "abir.vohra4703",
+  "vivaan.jain7503",
+  "rudraksh.sharma4830",
+];
+
+let hasQuestion = false;
+if (user.team.currentQuestion) {
+  hasQuestion = true;
+}
+---
+
+<MainLayout title="Crypt Hunt - Play">
+  {
+    () => {
+      if (hasEnded) {
+        return (
+          <div class="grow-[1] flex flex-col justify-center items-center relative bottom-10">
+            <p class="text-6xl font-bold text-center mb-6">
+              Crypt Hunt 2024 is over!
+            </p>
+            <a
+              href="/leaderboard"
+              id="get-started"
+              class="text-white w-fit text-xl sm:text-4xl bg-black dark:invert dark:hover:invert-0 hover:invert duration-150 hover:scale-105 py-2 px-6 rounded-tl-md rounded-br-md mt-4 sm:mt-8 sm:ml-6 border border-neutral-700"
+            >
+              Leaderboard
+            </a>
+          </div>
+        );
+      } else if (paused) {
+        return (
+          <div class="grow-[1] flex flex-col justify-center items-center relative bottom-10">
+            <p class="text-6xl font-bold text-center mb-6">
+              The game has been paused by the OC!
+            </p>
+          </div>
+        );
+      } else if (isBanned) {
+        return (
+          <div class="grow-[1] flex flex-col justify-center items-center relative bottom-10">
+            <p class="text-6xl font-bold text-center mb-6">
+              Your team has been banned from the game!
+            </p>
+            <p class="text-2xl text-center">
+              You can't participate in the game for now. Please contact the OC
+              for more information.
+            </p>
+          </div>
+        );
+      } else if (hasFinished) {
+        return (
+          <div class="grow-[1] flex flex-col justify-center items-center relative bottom-10">
+            <p class="text-6xl font-bold text-center mb-6">
+              Let's go <span class="capitalize">{user.team!.name}</span>!
+            </p>
+            <h1 class="text-5xl font-normal text-center">
+              <span>Your team</span> has finished!
+            </h1>
+            <a
+              href="/leaderboard"
+              id="get-started"
+              class="text-white w-fit text-xl sm:text-4xl bg-black dark:invert dark:hover:invert-0 hover:invert duration-150 hover:scale-105 py-2 px-6 rounded-tl-md rounded-br-md mt-4 sm:mt-8 sm:ml-6 border border-neutral-700"
+            >
+              Leaderboard
+            </a>
+          </div>
+        );
+      } else if (!hasStarted) {
+        return (
+          <div class="grow-[1] flex flex-col justify-center relative bottom-10">
+            <h1 class="text-5xl font-medium text-center mt-8">
+              <span class="underline">Crypt Hunt</span> has not started yet!
+            </h1>
+            <p class="text-2xl text-center mt-4">
+              Glad to see you're excited though,{" "}
+              <span class="capitalize">
+                {captain_usernames.includes(user_.username) && "Captain "}
+                {`${name}!`}
+              </span>
+              The game will start soon.
+            </p>
+          </div>
+        );
+      } else if (!hasQuestion) {
+        return (
+          <div class="grow-[1] flex flex-col justify-center items-center relative bottom-10">
+            <h1 class="text-5xl font-medium text-center">
+              Error: No question - please contact an OC member
+            </h1>
+          </div>
+        );
+      } else {
+        return (
+          <>
+            <QuestionDisplay user={user as any} />
+          </>
+        );
+      }
+    }
+  }
+  <script>
+    import { loader } from "@/utils/misc";
+
+    // TAILWIND INCLUDE CLASSES:
+    const statusClasses =
+      "text-red-500 text-green-500 border-red-500 border-green-500 border-2".split(
+        " "
+      );
+
+    const form = document.getElementById("answerForm");
+    const answerInput = document.querySelector<HTMLInputElement>("#answer");
+    const submitBtn =
+      document.querySelector<HTMLButtonElement>("#answerForm button");
+    const statusEl = document.getElementById("q-status");
+    let statusTimeout: number;
+
+    function showStatus(status: string, timeout = 1000, color = "red-500") {
+      if (!statusEl || !answerInput) return;
+      statusEl?.classList.remove(...statusClasses);
+      statusEl?.classList.add(`text-${color}`);
+      statusEl.textContent = status;
+      statusEl.setAttribute("aria-hidden", "false");
+
+      // answer input border color
+      answerInput.classList.remove(...statusClasses);
+      answerInput.classList.remove(
+        "border-neutral-300",
+        "dark:border-neutral-700"
+      );
+      answerInput.classList.add(`border-${color}`);
+      answerInput.classList.add("border-2");
+
+      clearTimeout(statusTimeout);
+
+      statusTimeout = window.setTimeout(clearStatus, timeout);
+    }
+
+    function clearStatus() {
+      if (!statusEl || !answerInput) return;
+      statusEl.textContent = "";
+      statusEl.setAttribute("aria-hidden", "true");
+      answerInput.classList.remove(...statusClasses);
+      answerInput.classList.add(
+        "border-neutral-300",
+        "dark:border-neutral-700"
+      );
+    }
+
+    const questionEl = document.getElementById("question");
+    const questionNo = questionEl?.getAttribute("data-question");
+    const correctAnswerEvent = new CustomEvent("crypthunt:correct-answer", {
+      detail: {
+        question: {
+          no: questionNo,
+        },
+      },
+    });
+    const oldLoader = ` <span class="animate-spin">· · ·</span>`;
+    function showLoader() {
+      if (!submitBtn) return;
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = loader;
+    }
+
+    function hideLoader() {
+      if (!submitBtn) return;
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = "Submit";
+    }
+
+    const currentQuestionId = questionEl?.getAttribute("data-question-id");
+    const responseId = questionEl?.getAttribute("data-uuid");
+
+    form?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const answer = answerInput?.value;
+      if (!answer) {
+        showStatus("No answer provided", 2000, "red-500");
+        return;
+      }
+      showLoader();
+      const res = await fetch("/api/answer", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          answer,
+          responseId,
+          questionId: currentQuestionId,
+        }),
+      });
+      try {
+        const data = await res.json();
+        console;
+        if (data?.correct) {
+          document.dispatchEvent(correctAnswerEvent);
+          answerInput.value = "";
+          answerInput.disabled = true;
+          if (!submitBtn) return;
+          clearStatus();
+        } else if (
+          (data.error && data?.error.includes("out of sync")) ||
+          (data.currentQuestionId &&
+            currentQuestionId !== data.currentQuestionId)
+        ) {
+          showStatus(data?.error, 2000, "red-500");
+          setTimeout(() => {
+            window.location.reload();
+          }, 2000);
+        } else if (!data?.correct) {
+          showStatus("Incorrect", 2000, "red-500");
+          hideLoader();
+        } else {
+          showStatus("Error", 2000, "red-500");
+          hideLoader();
+        }
+      } catch (err) {
+        console.error(err);
+        showStatus("Error", 2000, "red-500");
+        hideLoader();
+      }
+    });
+
+    const username =
+      document.querySelector<HTMLDivElement>("student-details")?.dataset
+        .username;
+
+    const teamId =
+      document.querySelector<HTMLDivElement>("student-details")?.dataset.teamId;
+
+    window.addEventListener("crypthunt:team-leveled-up", ((e: CustomEvent) => {
+      const { detail: data } = e;
+      if (data.teamId === teamId) {
+        console.log("You've been moved to the next question");
+      }
+      console.log(data, teamId, responseId);
+      if (data.responseId !== responseId && data.teamId == teamId) {
+        showStatus(
+          "You've leveled up - someone on your team answered correctly!!",
+          2000,
+          "green-500"
+        );
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+      }
+    }) as EventListener);
+  </script>
+</MainLayout>

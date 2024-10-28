@@ -1,0 +1,54 @@
+---
+import { OC_ROLES } from "@/middleware";
+
+interface Props {
+  hoverColor?: string;
+}
+const { hoverColor } = Astro.props;
+
+const test = {
+  getAttributes: (attributes: any) => {
+    return {
+      attributes,
+    };
+  },
+};
+
+const { user } = Astro.locals;
+
+test.getAttributes({ hoverColor });
+---
+
+<nav class="opacity-60 flex flex-row gap-x-4">
+  {OC_ROLES.includes(user?.role || "") && <a href="/admin">admin</a>}
+  <a href="/about">about</a>
+  <a href="/rules">rules</a>
+  {
+    Astro.locals.session ? (
+      <form action="/api/logout" method="post">
+        <button type="submit" title="logout" id="logout">
+          logout
+        </button>
+      </form>
+    ) : (
+      ""
+    )
+  }
+</nav>
+
+<style
+  define:vars={{
+    hoverColor: hoverColor ? hoverColor : "rgb(40, 40, 40)",
+    hoverColorDark: hoverColor ? hoverColor : "rgb(220, 220, 220)",
+  }}
+>
+  a,
+  button {
+    @apply underline underline-offset-1;
+  }
+
+  a:hover,
+  button:hover {
+    @apply text-[var(--hoverColor)] dark:text-[var(--hoverColorDark)] brightness-[0.8];
+  }
+</style>

@@ -1,0 +1,183 @@
+---
+import MainLayout from "@/layouts/MainLayout.astro";
+
+import { db } from "@/db";
+const { id } = Astro.params;
+
+if (!id) {
+  return new Response(null, {
+    status: 400,
+  });
+}
+
+const session = await db.query.sessions.findFirst({
+  where: (sessions, { eq }) => eq(sessions.id, id),
+  with: {
+    user: {
+      with: {
+        team: true,
+      },
+    },
+  },
+});
+
+if (!session) {
+  return new Response(null, {
+    status: 404,
+  });
+}
+
+interface DisplayData {
+  label: string;
+  value: string;
+  href?: string;
+}
+
+const displayData: DisplayData[] = [
+  {
+    label: "ID",
+    value: session.id.toString(),
+  },
+  {
+    label: "User",
+    value: session.user.username || "Unknown",
+    href: session.user ? `/admin/users/${session.user.id}` : undefined,
+  },
+  {
+    label: "Role",
+    value: session.user.role,
+  },
+  {
+    label: "Team",
+    value: session.user.team?.name || "N/A",
+    href: session.user.team
+      ? `/admin/teams/${session.user.team.id}`
+      : undefined,
+  },
+  {
+    label: "Created At",
+    value: new Date(session.createdAt * 1000).toLocaleString(),
+  },
+  {
+    label: "Expires At",
+    value: new Date(session.expiresAt * 1000).toLocaleString(),
+  },
+  {
+    label: "IP Address",
+    value: session.ipAddress,
+  },
+  {
+    label: "IP Country",
+    value: session.ipCountry || "Unknown",
+  },
+];
+---
+
+<MainLayout title={`Crypt Hunt - Admin - Session (${session.id})`}>
+  <div
+    class="w-full max-w-xl mx-auto flex flex-col items-center mt-8 mb-4 relative"
+  >
+    <session-meta
+      data-session-id={session.id}
+      data-user-id={session.userId}
+      class="hidden"
+      hidden
+      aria-hidden="true"></session-meta>
+    <a
+      href="/admin/sessions"
+      class="sm:absolute top-2 left-0 text-blue-500 dark:text-blue-400 hover:underline text-lg"
+      >See Sessions</a
+    >
+    <h1 class="text-4xl font-semibold">View Session</h1>
+    <div class="w-full mt-8 text-center grid grid-cols-1 sm:text-lg">
+      {
+        displayData.map(({ label, value, href }) => (
+          <div
+            onclick={`${href ? `window.location.href = "${href}"` : ""}`}
+            class:list={[
+              "flex justify-between p-4 gap-3 border-b border-neutral-700 hover:bg-black/5 dark:hover:bg-white/5",
+              href ? "cursor-pointer" : undefined,
+            ]}
+          >
+            <span class="font-semibold">{label}</span>
+            <span class="max-w-[14rem] overflow-x-auto text-right">
+              {value}
+            </span>
+          </div>
+        ))
+      }
+    </div>
+    <div class="flex gap-4 mt-8">
+      <button id="delete" class="btn danger"> Delete </button>
+      <button id="delete-all" class="btn hover:bg-red-600 text-sm saturate-200">
+        Delete All User Sessions
+      </button>
+    </div>
+  </div>
+
+  <script>
+    const id =
+      document.querySelector<HTMLElement>("session-meta")?.dataset.sessionId;
+    const userId =
+      document.querySelector<HTMLElement>("session-meta")?.dataset.userId;
+
+    document.getElementById("delete")?.addEventListener("click", async () => {
+      if (!id) return;
+
+      const confirmed = confirm(
+        "Are you sure you want to delete this session?"
+      );
+
+      if (!confirmed) return;
+
+      const response = await fetch(`/api/admin/sessions/${id}`, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        window.location.href = "/admin/sessions";
+      } else {
+        alert("Failed to delete session");
+      }
+    });
+
+    document
+      .getElementById("delete-all")
+      ?.addEventListener("click", async () => {
+        if (!userId) return;
+
+        const confirmed = confirm(
+          "Are you sure you want to delete all sessions for this user?"
+        );
+
+        if (!confirmed) return;
+
+        const response = await fetch(`/api/admin/sessions/${userId}/all`, {
+          method: "DELETE",
+        });
+
+        if (response.ok) {
+          window.location.href = "/admin/sessions";
+        } else {
+          alert("Failed to delete sessions");
+        }
+      });
+  </script>
+  <style>
+    .btn {
+      @apply py-2 px-4 rounded-tl-md rounded-br-md duration-150 border border-neutral-700;
+    }
+
+    .default {
+      @apply bg-black text-white dark:bg-white hover:invert dark:text-black;
+    }
+
+    .important {
+      @apply bg-blue-500 text-white hover:brightness-110;
+    }
+
+    .danger {
+      @apply bg-red-500 text-white hover:saturate-150;
+    }
+  </style>
+</MainLayout>

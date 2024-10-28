@@ -1,0 +1,224 @@
+---
+import MainLayout from "@/layouts/MainLayout.astro";
+import { dateToHTMLDatetime } from "@/utils/misc";
+import { db } from "@/db";
+const { id: rawId } = Astro.params;
+
+if (!rawId) {
+  return new Response(null, {
+    status: 400,
+  });
+}
+const id = Number(rawId);
+if (isNaN(id)) {
+  return new Response(null, {
+    status: 400,
+  });
+}
+
+const team = await db.query.teams.findFirst({
+  where: (team, { eq }) => eq(team.id, id),
+  with: {
+    responses: {
+      orderBy: (response, { desc }) => desc(response.createdAt),
+      limit: 1,
+    },
+  },
+});
+
+const questions = await db.query.questions.findMany();
+
+if (!team) {
+  return new Response(null, {
+    status: 404,
+  });
+}
+
+interface FormDisplayData {
+  id: string;
+  label: string;
+  value: any;
+  type?: "text" | "number" | "date" | "checkbox" | "time" | "datetime-local";
+  readonly?: boolean;
+  customClasses?: string;
+}
+
+const displayData: FormDisplayData[] = [
+  {
+    id: "id",
+    label: "ID",
+    value: team.id,
+    readonly: true,
+    type: "number",
+  },
+  {
+    id: "name",
+    label: "Name",
+    value: team.name,
+    customClasses: "capitalize",
+    type: "text",
+  },
+  {
+    id: "points",
+    label: "Points",
+    value: team.points,
+    type: "number",
+  },
+  {
+    id: "levelUpTime",
+    label: "Level Up Time",
+    value: team.levelUpTime ? dateToHTMLDatetime(team.levelUpTime) : undefined,
+    type: "datetime-local",
+    customClasses: "[&>input]:text-sm",
+  },
+  {
+    id: "bannedUntil",
+    label: "Banned Until",
+    value: team.bannedUntil ? dateToHTMLDatetime(team.bannedUntil) : undefined,
+    type: "datetime-local",
+    customClasses: "[&>input]:text-sm",
+  },
+  {
+    id: "hasFinished",
+    label: "Has Finished",
+    value: team.hasFinished,
+    type: "checkbox",
+  },
+];
+---
+
+<MainLayout title={`Crypt Hunt - Admin - Edit Team`}>
+  <div
+    class="w-full max-w-xl mx-auto flex flex-col items-center mt-8 mb-4 relative"
+  >
+    <team-meta data-team-id={team.id} class="hidden" hidden aria-hidden="true"
+    ></team-meta>
+    <a
+      href={`/admin/teams/${team.id}`}
+      class="sm:absolute top-2 left-0 text-blue-500 dark:text-blue-400 hover:underline text-lg"
+      >See Team</a
+    >
+    <h1 class="text-4xl font-semibold">Edit Team</h1>
+    <form
+      id="edit-form"
+      class="w-full mt-8 text-center flex flex-col justify-center sm:text-lg"
+    >
+      {
+        displayData.map(
+          ({ id, label, readonly, value, type, customClasses }) => (
+            <div
+              class:list={[
+                "flex justify-between p-4 gap-3 border-b border-neutral-700 hover:bg-black/5 dark:hover:bg-white/5",
+                customClasses,
+              ]}
+            >
+              <label for={id} class="font-semibold">
+                {label}
+              </label>
+              <input
+                type={type || "text"}
+                {id}
+                name={id}
+                readonly={readonly}
+                class="w-full max-w-[14rem] overflow-x-auto  dark:bg-white/5 bg-black/5 text-center rounded-md"
+                value={value}
+                onchange={
+                  type === "checkbox" ? `this.value = this.checked;` : undefined
+                }
+              />
+            </div>
+          )
+        )
+      }
+      <div
+        class:list={[
+          "flex justify-between p-4 gap-3 border-b border-neutral-700 hover:bg-black/5 dark:hover:bg-white/5",
+        ]}
+      >
+        <label for="currentQuestionId" class="font-semibold">
+          Current Question
+        </label>
+        <select
+          id="currentQuestionId"
+          name="currentQuestionId"
+          class="w-full max-w-[14rem] overflow-x-auto dark:bg-white/5 bg-black/5 text-center rounded-md"
+        >
+          <option value="-1">-1</option>
+          {
+            questions.map((question) => (
+              <option
+                value={question.id}
+                selected={question.id === team.currentQuestionId}
+              >
+                {question.id} - {question.content.slice(0, 20) + "..."}
+              </option>
+            ))
+          }
+        </select>
+      </div>
+      <button type="submit" class="btn default mt-4 px-8 self-center w-fit">
+        Save
+      </button>
+    </form>
+    <script>
+      const form = document.querySelector<HTMLFormElement>("#edit-form");
+      form?.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries()) as Record<
+          string,
+          any
+        >;
+        const id = Number(data.id);
+        data.points = Number(data.points);
+
+        delete data.id;
+
+        if (isNaN(id) || isNaN(data.points)) {
+          alert("Invalid ID");
+          return;
+        }
+        // Parse date
+        data.levelUpTime = data.levelUpTime ? new Date(data.levelUpTime) : null;
+
+        data.bannedUntil = data.bannedUntil ? new Date(data.bannedUntil) : null;
+        data.currentQuestionId = !!data.currentQuestionId
+          ? data.currentQuestionId
+          : null;
+
+        data.hasFinished = !!data.hasFinished;
+
+        console.log(data);
+        const res = await fetch(`/api/admin/teams/${id}`, {
+          method: "PUT",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify(data),
+        });
+        if (res.ok) {
+          alert("Team updated successfully");
+        } else {
+          alert("Failed to update team");
+        }
+      });
+    </script>
+    <style>
+      .btn {
+        @apply py-2 px-4 rounded-tl-md rounded-br-md duration-150 border border-neutral-700;
+      }
+
+      .default {
+        @apply bg-black text-white dark:bg-white hover:invert dark:text-black;
+      }
+
+      .important {
+        @apply bg-blue-500 text-white hover:brightness-110;
+      }
+
+      .danger {
+        @apply bg-red-500 text-white hover:saturate-150;
+      }
+    </style>
+  </div>
+</MainLayout>

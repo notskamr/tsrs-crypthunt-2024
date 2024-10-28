@@ -1,0 +1,29 @@
+---
+import type { ComponentProps } from "astro/types";
+import MainLayout from "./MainLayout.astro";
+
+type frontmatter = ComponentProps<typeof MainLayout> & { file: string };
+
+interface Props {
+  frontmatter: frontmatter;
+}
+
+const { frontmatter } = Astro.props;
+if (!frontmatter?.title) {
+  throw new Error(`No title provided in frontmatter - ${frontmatter.file}`);
+}
+---
+
+<MainLayout {...frontmatter}>
+  <article
+    class="prose dark:prose-invert mx-auto max-w-4xl w-full py-8 px-4 custom"
+  >
+    <slot />
+  </article>
+</MainLayout>
+
+<style>
+  .custom {
+    @apply prose-h1:font-semibold prose-h2:font-medium prose-h3:font-medium;
+  }
+</style>

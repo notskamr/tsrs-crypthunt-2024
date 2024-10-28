@@ -1,0 +1,60 @@
+---
+import MainLayout from "@/layouts/MainLayout.astro";
+import UsersTable from "@/components/AdminTables/UsersTable.svelte";
+import { db } from "@/db";
+
+export type UsersTableData = typeof users;
+
+const filterByTeamId = Astro.url.searchParams.get("teamId")
+  ? Number(Astro.url.searchParams.get("teamId"))
+  : undefined;
+
+if (filterByTeamId && isNaN(filterByTeamId)) {
+  return new Response("Invalid teamId", { status: 400 });
+}
+
+const users = await db.query.users.findMany({
+  orderBy: (users, { desc }) => [desc(users.createdAt)],
+  where: filterByTeamId
+    ? (user, { eq }) => eq(user.teamId, filterByTeamId)
+    : undefined,
+  with: {
+    team: true,
+  },
+});
+---
+
+<MainLayout title="Crypt Hunt - Admin - Users">
+  <div
+    class="w-full max-w-3xl mx-auto flex flex-col items-center mt-8 mb-4 relative"
+  >
+    <a
+      href="/admin"
+      class="sm:absolute top-2 left-0 text-blue-500 dark:text-blue-400 hover:underline text-lg"
+      >See Admin</a
+    >
+    <h1 class="text-4xl font-semibold">Users</h1>
+    <div class="w-full mt-8">
+      <UsersTable data={users} client:load />
+    </div>
+    <div class="mt-4 w-full flex flex-col"></div>
+  </div>
+</MainLayout>
+
+<style>
+  .btn {
+    @apply py-2 px-4 rounded-tl-md rounded-br-md duration-150 border border-neutral-700;
+  }
+
+  .default {
+    @apply bg-black text-white dark:bg-white hover:invert dark:text-black;
+  }
+
+  .important {
+    @apply bg-blue-500 text-white hover:brightness-110;
+  }
+
+  .danger {
+    @apply bg-red-500 text-white hover:saturate-150;
+  }
+</style>

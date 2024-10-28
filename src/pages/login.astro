@@ -1,0 +1,244 @@
+---
+import MainLayout from "@/layouts/MainLayout.astro";
+import { titleCase } from "@/utils/misc";
+import { Team } from "@/utils/models/Team";
+
+const { user } = Astro.locals;
+if (user) {
+  return Astro.redirect("/play");
+}
+
+const teams = await Team.allAsClassInstances();
+---
+
+<MainLayout title="Crypt Hunt - Login">
+  <div
+    class="flex flex-col items-center justify-center grow-[1] max-w-md mx-auto px-4 w-full"
+  >
+    <h1 class="text-4xl font-bold">Login</h1>
+    <form class="flex flex-col items-center justify-center mt-4 w-full gap-1">
+      <label for="team" class="text-base w-full opacity-70"
+        >Select your team</label
+      >
+      <div
+        id="team-outer"
+        class="px-3 py-3 border xs:text-lg sm:text-xl border-neutral-300 dark:border-neutral-700 bg-transparent placeholder:text-black/60 dark:placeholder:text-white/60 disabled:bg-black/20 w-full rounded-tl-md"
+      >
+        <select
+          id="team"
+          name="team"
+          class="bg-transparent w-[98%] h-full outline-none child:text-black"
+        >
+          <option>Your Team</option>
+          {
+            teams.map((team) => {
+              return (
+                <option class="capitalize" value={team.id}>
+                  {titleCase(team.name)}
+                </option>
+              );
+            })
+          }
+        </select>
+      </div>
+
+      <label for="username" class="text-base w-full opacity-70 mt-2"
+        >Enter your school ID</label
+      >
+      <input
+        type="text"
+        id="username"
+        name="username"
+        placeholder="john.doe1234"
+        autocomplete="off"
+        class="px-3 py-3 border xs:text-lg sm:text-xl border-neutral-300 dark:border-neutral-700 bg-transparent placeholder:text-black/60 dark:placeholder:text-white/60 disabled:bg-black/20 w-full"
+      />
+      <label for="password" class="text-base w-full opacity-70 mt-2"
+        >Enter your team password</label
+      >
+      <input
+        type="password"
+        id="password"
+        name="password"
+        placeholder="Password"
+        autocomplete="off"
+        class="px-3 py-3 border xs:text-lg sm:text-xl border-neutral-300 dark:border-neutral-700 bg-transparent placeholder:text-black/60 dark:placeholder:text-white/60 disabled:bg-black/20 w-full"
+      />
+
+      <button
+        id="login-submit"
+        type="submit"
+        class="text-white text-lg xs:text-2xl bg-black dark:invert dark:hover:invert-0 hover:invert duration-150 py-2 px-4 rounded-br-md mt-4 border border-neutral-700 disabled:invert dark:disabled:invert-0 w-full"
+      >
+        Submit
+      </button>
+      <div class="status text-red-500 text-lg mt-2 w-full" aria-hidden="true">
+      </div>
+    </form>
+  </div>
+</MainLayout>
+
+<script>
+  import { loader } from "@/utils/misc";
+
+  const form = document.querySelector<HTMLFormElement>("form");
+  const team = document.querySelector<HTMLSelectElement>("#team");
+  const teamOuter = document.querySelector<HTMLDivElement>("#team-outer");
+  const submitBtn = document.querySelector<HTMLButtonElement>("#login-submit");
+  const username = document.querySelector<HTMLInputElement>("#username");
+  const password = document.querySelector<HTMLInputElement>("#password");
+  // all form fields input/select
+
+  interface Field {
+    name: string;
+    input: HTMLInputElement | HTMLSelectElement;
+    addBorderTo: HTMLElement;
+  }
+
+  const formFields: Field[] = [
+    {
+      name: "teamId",
+      input: team!,
+      addBorderTo: teamOuter!,
+    },
+    {
+      name: "username",
+      input: username!,
+      addBorderTo: username!,
+    },
+    {
+      name: "password",
+      input: password!,
+      addBorderTo: password!,
+    },
+  ];
+
+  form?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    showLoader();
+    // show green border on filled fields, red on empty - use showStatus
+    const emptyFields = formFields.filter(
+      (field) =>
+        !field.input.value ||
+        (field.input as HTMLSelectElement)?.selectedIndex === 0
+    );
+
+    if (emptyFields.length > 0) {
+      showStatus(
+        "Please fill all fields",
+        {
+          statusEl: document.querySelector(".status")!,
+          answerInputs: emptyFields.map((field) => field.addBorderTo),
+        },
+        2000
+      );
+      hideLoader();
+      return;
+    }
+
+    let dataRaw: any = Object.fromEntries(
+      formFields.map((field) => [field.name, field.input.value])
+    );
+    const data = {
+      teamId: Number(dataRaw.teamId),
+      username: dataRaw.username,
+      password: dataRaw.password,
+    };
+
+    const response = await fetch("/api/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    });
+    const res = await response.json();
+    if (response.ok) {
+      showStatus(
+        res.created
+          ? "Created user! Redirecting..."
+          : "Success! Redirecting...",
+        {
+          statusEl: document.querySelector(".status")!,
+          answerInputs: formFields.map((field) => field.addBorderTo),
+        },
+        2000,
+        "green-500"
+      );
+      setTimeout(() => {
+        window.location.href = "/play";
+
+        hideLoader();
+      }, 2000);
+    } else {
+      showStatus(
+        res.error || "An error occurred",
+        {
+          statusEl: document.querySelector(".status")!,
+          answerInputs: formFields.map((field) => field.addBorderTo),
+        },
+        2000
+      );
+    }
+    hideLoader();
+  });
+
+  function showLoader() {
+    if (!submitBtn) return;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = loader;
+  }
+
+  function hideLoader() {
+    if (!submitBtn) return;
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = "Submit";
+  }
+
+  let statusTimeout: number;
+  const statusClasses =
+    "text-red-500 text-green-500 border-red-500 border-green-500 border-2".split(
+      " "
+    );
+  interface Elements {
+    statusEl: HTMLElement;
+    answerInputs: HTMLElement[];
+  }
+  function showStatus(
+    status: string,
+    elements: Elements,
+    timeout = 1000,
+    color = "red-500"
+  ) {
+    const { statusEl, answerInputs } = elements;
+    statusEl?.classList.remove(...statusClasses);
+    statusEl?.classList.add(`text-${color}`);
+    statusEl.textContent = status;
+    statusEl.setAttribute("aria-hidden", "false");
+
+    // answer input border color
+    answerInputs.forEach((elem) => elem.classList.remove(...statusClasses));
+    answerInputs.forEach((elem) =>
+      elem.classList.remove("border-neutral-300", "dark:border-neutral-700")
+    );
+    answerInputs.forEach((elem) => {
+      elem.classList.add(`border-${color}`);
+      elem.classList.add("border-2");
+    });
+
+    clearTimeout(statusTimeout);
+    statusTimeout = window.setTimeout(() => {
+      clearStatus(elements);
+    }, timeout);
+  }
+
+  function clearStatus(elements: Elements) {
+    const { statusEl, answerInputs } = elements;
+    statusEl.textContent = "";
+    statusEl.setAttribute("aria-hidden", "true");
+    answerInputs.forEach((elem) => elem.classList.remove(...statusClasses));
+    answerInputs.forEach((elem) => {
+      elem.classList.add("border-neutral-300", "dark:border-neutral-700");
+    });
+  }
+</script>

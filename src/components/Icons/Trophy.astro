@@ -1,0 +1,46 @@
+---
+interface Props {
+  text: string;
+  [key: string]: any;
+}
+const { text, ...props } = Astro.props;
+---
+
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  fill="none"
+  viewBox="0 0 375 365"
+  width="1em"
+  height="1em"
+  {...props}
+>
+  <path
+    stroke="currentColor"
+    stroke-linecap="round"
+    stroke-width="32"
+    d="m245 346-107 2"></path>
+  <path
+    stroke="currentColor"
+    stroke-linecap="square"
+    stroke-linejoin="round"
+    stroke-width="32"
+    d="M191 248v72"></path>
+  <path
+    fill="currentColor"
+    d="M92 0h197H92Zm213 228c0 9-7 17-17 17H93c-9 0-17-8-17-17l32-15h165l32 15ZM93 245c-9 0-17-8-17-17V17c0-9 8-17 17-17h15v213l-15 32ZM288 0c10 0 17 8 17 17v211c0 9-7 17-17 17l-15-32V0h15Z"
+  ></path>
+  <path
+    stroke="currentColor"
+    stroke-width="32"
+    d="M93 78H28c-5 0-10 4-11 9-4 42 29 82 76 96M289 78h65c5 0 10 4 11 9 4 42-29 82-76 96"
+  ></path>
+  <text
+    xml:space="preserve"
+    fill="currentColor"
+    font-family="Space Grotesk"
+    font-size="100"
+    font-weight="bold"
+    letter-spacing="0em"
+    style="white-space:pre"><tspan x="119.9" y="148.6">{text}</tspan></text
+  >
+</svg>

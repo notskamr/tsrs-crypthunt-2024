@@ -1,0 +1,85 @@
+---
+import {
+  type SelectQuestion,
+  type SelectTeam,
+  type SelectUser,
+} from "@/db/schema";
+import { getBearerToken } from "@/utils/funcs/user";
+import { marked } from "marked";
+type User = SelectUser & {
+  team: SelectTeam & { currentQuestion: SelectQuestion };
+};
+interface Props {
+  user: User;
+}
+
+const { user } = Astro.props;
+const name = user.username.replace(/[^a-zA-Z]/g, " ").trim();
+---
+
+<div
+  class="flex flex-col sm:flex-row justify-between min-h-full grow-[1] mt-8 sm:px-8 sm:gap-24 items-center sm:items-baseline"
+>
+  <section
+    id="question"
+    data-uuid={crypto.randomUUID()}
+    data-question-position={user.team.currentQuestion.position}
+    data-question-id={user.team.currentQuestion.id}
+    class="w-full max-w-md"
+  >
+    <h1 class="text-xl xs:text-3xl text-center sm:text-left font-medium mb-4">
+      {
+        user.team.currentQuestion.title ||
+          `Question ${user.team.currentQuestion.position}`
+      }
+    </h1>
+    <div
+      class="question prose xs:prose-lg dark:prose-invert border-neutral-300 dark:border-neutral-700 border p-4 rounded-tl-md rounded-br-md max-h-[70vh] overflow-y-auto"
+      set:html={marked.parse(user.team!.currentQuestion.content)}
+    />
+  </section>
+  <section
+    id="response"
+    class="flex flex-col-reverse sm:flex-col items-center justify-center max-w-md w-full"
+  >
+    <h1
+      class="text-lg xs:text-xl sm:text-3xl w-full font-medium mt-0 sm:mb-4 sm:mt-0 opacity-0"
+    >
+      Answer
+    </h1>
+    <form class="flex flex-col w-full" id="answerForm">
+      <input
+        type="text"
+        id="answer"
+        name="answer"
+        placeholder="Your answer"
+        autocomplete="off"
+        class="px-3 py-4 border xs:text-lg sm:text-xl border-neutral-300 dark:border-neutral-700 rounded-tl-md bg-transparent placeholder:text-black/60 dark:placeholder:text-white/60 disabled:bg-black/20"
+      />
+      <button
+        type="submit"
+        class="text-white text-lg xs:text-2xl bg-black dark:invert dark:hover:invert-0 hover:invert duration-150 py-2 px-4 rounded-br-md mt-4 border border-neutral-700 disabled:invert dark:disabled:invert-0"
+      >
+        Submit
+      </button>
+    </form>
+    <div
+      id="q-status"
+      class="status w-full sm:mt-2 mb-2 text-left relative sm:bottom-0 top-0 font-medium"
+    >
+    </div>
+
+    <student-details
+      data-username={user.username}
+      data-team-id={user.teamId}
+      class="order-first sm:-order-none w-full relative text-end sm:mt-8"
+    >
+      <h2 class="text-xl xs:text-2xl font-medium capitalize">
+        {name}
+      </h2>
+      <p id="team" class="text-lg font-light capitalize">
+        {user.team?.name}
+      </p>
+    </student-details>
+  </section>
+</div>

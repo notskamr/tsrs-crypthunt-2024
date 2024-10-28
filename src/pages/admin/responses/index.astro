@@ -1,0 +1,71 @@
+---
+import MainLayout from "@/layouts/MainLayout.astro";
+import ResponsesTable from "@/components/AdminTables/ResponseTable.svelte";
+import { db } from "@/db";
+import { desc } from "drizzle-orm";
+import { questionResponses } from "@/db/schema";
+
+let teamIdFilter = Astro.url.searchParams.get("teamId");
+let userIdFilter = Astro.url.searchParams.get("userId");
+const filterByTeamId = teamIdFilter ? Number(teamIdFilter) : undefined;
+const filterByUserId = userIdFilter || undefined;
+
+const responses = await db.query.questionResponses.findMany({
+  orderBy: [desc(questionResponses.createdAt)],
+  with: {
+    user: true,
+    question: {
+      columns: {
+        id: true,
+      },
+    },
+    team: {
+      columns: {
+        name: true,
+        id: true,
+      },
+    },
+  },
+  ...(filterByTeamId && {
+    where: (responses, { eq }) => eq(responses.teamId, filterByTeamId),
+  }),
+  ...(filterByUserId && {
+    where: (responses, { eq }) => eq(responses.userId, filterByUserId),
+  }),
+});
+---
+
+<MainLayout title="Crypt Hunt - Admin - Responses">
+  <div
+    class="w-full max-w-3xl mx-auto flex flex-col items-center mt-8 mb-4 relative"
+  >
+    <a
+      href="/admin"
+      class="sm:absolute top-2 left-0 text-blue-500 dark:text-blue-400 hover:underline text-lg"
+      >See Admin</a
+    >
+    <h1 class="text-4xl font-semibold">Responses</h1>
+    <div class="w-full mt-8">
+      <ResponsesTable data={responses} client:load />
+    </div>
+    <div class="mt-4 w-full flex flex-col"></div>
+  </div>
+</MainLayout>
+
+<style>
+  .btn {
+    @apply py-2 px-4 rounded-tl-md rounded-br-md duration-150 border border-neutral-700;
+  }
+
+  .default {
+    @apply bg-black text-white dark:bg-white hover:invert dark:text-black;
+  }
+
+  .important {
+    @apply bg-blue-500 text-white hover:brightness-110;
+  }
+
+  .danger {
+    @apply bg-red-500 text-white hover:saturate-150;
+  }
+</style>

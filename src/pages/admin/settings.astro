@@ -1,0 +1,88 @@
+---
+import MainLayout from "@/layouts/MainLayout.astro";
+import { kv } from "@/utils/kv";
+
+const { user, session } = Astro.locals;
+
+if (!session || !user) {
+  return Astro.redirect("/admin/login");
+}
+
+const paused = (await kv.get("ch:paused")) === "1";
+---
+
+<MainLayout title="Crypt Hunt - Admin">
+  <div class="w-full mx-auto">
+    <h1 class="text-4xl font-bold text-center mt-8">Site Settings</h1>
+    <div class="mt-8 text-center">
+      <h2 class="text-2xl font-bold capitalize">Welcome, {user.username}</h2>
+      <p class="text-lg">You are logged in as an admin.</p>
+    </div>
+    <section
+      id="actions"
+      class="flex flex-col sm:flex-row w-full justify-between max-w-xl mt-8 mx-auto gap-3"
+    >
+      <div>
+        <h2 class="text-2xl font-bold">Manage</h2>
+        <ul class="mt-1">
+          <li class="text-lg">
+            <a href="/admin/questions" class="text-blue-500 hover:underline"
+              >Questions</a
+            >
+          </li>
+          <li class="text-lg">
+            <a href="/admin/responses" class="text-blue-500 hover:underline"
+              >Responses</a
+            >
+          </li>
+          <li class="text-lg">
+            <a href="/admin/users" class="text-blue-500 hover:underline"
+              >Users</a
+            >
+          </li>
+          <li class="text-lg">
+            <a href="/admin/teams" class="text-blue-500 hover:underline"
+              >Teams</a
+            >
+          </li>
+          <li class="text-lg">
+            <a href="/admin/sessions" class="text-blue-500 hover:underline"
+              >Sessions</a
+            >
+          </li>
+        </ul>
+      </div>
+      <div id="toggles">
+        <h2 class="text-2xl font-bold">Settings</h2>
+        <ul class="mt-1">
+          <li class="text-lg">
+            <a href="/admin/settings" class="text-blue-500 hover:underline"
+              >Site Settings</a
+            >
+          </li>
+        </ul>
+        <div class="mt-4">
+          <h3 class="text-lg font-bold">Toggle Features</h3>
+          <div class="flex flex-col gap-2 mt-2 select-none max-w-xs w-fit">
+            <label
+              for="pause-game"
+              class="flex items-center gap-4 justify-between text-red-500"
+            >
+              <input
+                type="checkbox"
+                id="pause-game"
+                autocomplete="off"
+                name="pause-game"
+                class="form-checkbox h-5 w-5 text-blue-600"
+                checked={paused}
+              />
+              <span>Pause Game</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</MainLayout>
+
+<script></script>

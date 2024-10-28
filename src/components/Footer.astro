@@ -1,0 +1,33 @@
+---
+import type { ShadowColor, BorderColor } from "@/utils/types";
+import FooterInner from "./FooterInner.astro";
+
+interface Props {
+  borderColor?: BorderColor;
+}
+
+const {
+  borderColor = { default: `rgb(0 0 0 / 0.2)`, dark: `rgb(255 255 255 / 0.1)` },
+} = Astro.props;
+---
+
+<footer
+  class="w-full bg-black/5 border-t-2 rounded-t-md p-4 flex justify-center items-center z-[100]"
+>
+  <FooterInner
+    hoverColor={!borderColor.default.startsWith("rgb(0 0 0")
+      ? borderColor.default
+      : undefined}
+  />
+</footer>
+
+<style
+  define:vars={{
+    borderColor: borderColor.default,
+    borderColorDark: borderColor.dark || borderColor.default,
+  }}
+>
+  footer {
+    @apply border-[var(--borderColor)] dark:border-[var(--borderColorDark)];
+  }
+</style>

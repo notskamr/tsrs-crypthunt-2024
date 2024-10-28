@@ -1,0 +1,201 @@
+---
+import LeaderboardOverlay from "@/components/LeaderboardOverlay.svelte";
+import Overlay from "@/components/Overlay.svelte";
+import { db } from "@/db";
+import type { SelectTeam } from "@/db/schema";
+import MainLayout from "@/layouts/MainLayout.astro";
+import { Team } from "@/utils/models/Team";
+
+interface ITeam extends SelectTeam {
+  rank: number;
+}
+
+const teams = (await Team.allByPointsDescending()) as ITeam[];
+// rank the teams based on points - give them the same rank if they have the same points and same levelUpTime
+// they dont have a rank property in the db
+if (teams.length > 0) {
+  teams[0].rank = 1;
+  for (let i = 1; i < teams.length; i++) {
+    if (
+      teams[i].points === teams[i - 1].points &&
+      teams[i].levelUpTime === teams[i - 1].levelUpTime
+    ) {
+      teams[i].rank = teams[i - 1].rank;
+    } else {
+      teams[i].rank = i + 1;
+    }
+  }
+}
+---
+
+<MainLayout title="Crypt Hunt - Leaderboard">
+  <LeaderboardOverlay client:load />
+  <h1 class="text-4xl mx-auto mt-4 mb-8 font-semibold">Leaderboard</h1>
+  <section
+    id="leaderboard"
+    class="flex flex-col gap-4 text-xl sm:text-2xl w-full max-w-4xl mx-auto"
+  >
+    <div
+      class="grid w-full grid-cols-4 justify-end items-center text-lg opacity-60"
+    >
+      <div class="grid-item">Rank</div>
+      <div class="grid-item">Team</div>
+      <div class="grid-item">Points</div>
+      <div class="grid-item"></div>
+    </div>
+    {
+      teams.map((team) => (
+        <div
+          data-team-id={team.id}
+          class="team-row grid w-full grid-cols-4 justify-end items-center"
+        >
+          <div class="grid-item">
+            <span class="rank">{team.rank}</span>
+          </div>
+          <div class="grid-item team">{team.name}</div>
+          <div class="grid-item score">{team.points}</div>
+          <div class="grid-item !lowercase w-12">
+            <button
+              class="info"
+              data-levelup={team.levelUpTime}
+              data-name={team.name}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="1em"
+                height="1em"
+                viewBox="0 0 15 15"
+              >
+                <path
+                  fill="currentColor"
+                  d="M7 4.5V5h1v-.5zm1-.01v-.5H7v.5zM8 11V7H7v4zm0-6.5v-.01H7v.01zM6 8h1.5V7H6zm0 3h3v-1H6z"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+      ))
+    }
+  </section>
+</MainLayout>
+
+<script>
+  const infoButtons = document.querySelectorAll<HTMLButtonElement>(".info");
+  import type { OpenLeaderboardInfoDetails } from "@/utils/types";
+  // custom event with team info
+
+  infoButtons.forEach((button) => {
+    const details: OpenLeaderboardInfoDetails = {
+      teamName: button.dataset.name!,
+      levelUpTime: button.dataset.levelup!,
+    };
+    const customEvent = new CustomEvent("crypthunt:open-leaderboard-info", {
+      detail: details,
+    });
+    button.addEventListener("click", () => {
+      window.dispatchEvent(customEvent);
+    });
+  });
+
+  interface TeamRow {
+    id: number;
+    name: string;
+    rank: number;
+    element: HTMLDivElement;
+    points: number;
+    levelUpTime: Date;
+  }
+
+  let teamRows: TeamRow[] = Array.from(
+    document.querySelectorAll<HTMLDivElement>(".team-row")
+  ).map((element) => {
+    return {
+      id: Number(element.dataset.teamId!),
+      name: element.querySelector(".team")!.textContent!,
+      rank: Number(element.querySelector(".rank")!.textContent!),
+      element,
+      points: Number(element.querySelector(".score")!.textContent!),
+      levelUpTime: new Date(
+        element.querySelector<HTMLElement>(".info")!.dataset.levelup!
+      ),
+    };
+  });
+
+  window.addEventListener("crypthunt:team-leveled-up", ((e: CustomEvent) => {
+    const data = e.detail;
+    const { teamId, points } = data;
+    if (!points || !teamId) return;
+    const teamRow = teamRows.find((row) => row.id === teamId);
+    const score = teamRow?.element.querySelector(".score");
+    if (score) {
+      score.textContent = points;
+    }
+
+    // now sort the teamRows based on the new points and levelUpTime. if they have the same points and levelUpTime, give them the same new rank but sort alphabetically
+    teamRows = teamRows.map((row) => {
+      if (row.id === teamId) {
+        return {
+          ...row,
+          points,
+        };
+      }
+      return row;
+    });
+
+    teamRows.sort((a, b) => {
+      if (a.points === b.points) {
+        if (a.levelUpTime === b.levelUpTime) {
+          // alphabetical sort
+          return a.name.localeCompare(b.name);
+        }
+        // compare levelUpTime
+        return a.levelUpTime.getTime() - b.levelUpTime.getTime();
+      }
+      return b.points - a.points;
+    });
+
+    // get ranks - if they have the same points and levelUpTime, give them the same rank
+    if (teamRows.length > 0) {
+      teamRows[0].rank = 1;
+      for (let i = 1; i < teamRows.length; i++) {
+        if (
+          teamRows[i].points === teamRows[i - 1].points &&
+          teamRows[i].levelUpTime === teamRows[i - 1].levelUpTime
+        ) {
+          teamRows[i].rank = teamRows[i - 1].rank;
+        } else {
+          teamRows[i].rank = i + 1;
+        }
+      }
+    }
+
+    teamRows.forEach((row) => {
+      row.element.querySelector(".rank")!.textContent = row.rank.toString();
+      row.element.querySelector(".score")!.textContent = row.points.toString();
+    });
+
+    const leaderboard = document.getElementById("leaderboard")!;
+    teamRows.forEach((row, index) => {
+      leaderboard.appendChild(row.element);
+    });
+  }) as EventListener);
+</script>
+
+<style>
+  .grid-item {
+    @apply flex w-full items-center justify-center capitalize;
+  }
+  .rank {
+    @apply bg-black dark:bg-white text-white dark:text-black w-10 h-10 sm:w-12 sm:h-12 flex justify-center items-center rounded-tl-md rounded-br-md font-bold;
+  }
+  .score {
+    @apply flex flex-row gap-x-5;
+  }
+
+  .info {
+    @apply bg-black text-white dark:bg-white dark:text-black p-1 text-base sm:text-lg rounded-tl-md rounded-br-md w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center;
+  }
+  .info svg {
+    @apply scale-150;
+  }
+</style>

@@ -1,0 +1,56 @@
+---
+import Logo from "@/components/Logo.astro";
+import NewLogo from "@/components/NewLogo.astro";
+import Title, { AvailableSizeKeys } from "@/components/Title.astro";
+import MainLayout from "@/layouts/MainLayout.astro";
+import { OC_ROLES } from "@/middleware";
+
+const { user, session } = Astro.locals;
+const isAdmin = user?.role && OC_ROLES.includes(user?.role);
+const href = isAdmin ? "/admin" : session ? "/play" : "/login";
+const message = isAdmin ? "Admin Panel" : session ? "Continue!" : "Get Started";
+---
+
+<MainLayout title="Crypt Hunt" header={false} footer={true}>
+  <section id="main" class="flex flex-col grow-[1] justify-center items-center">
+    <div
+      id="ch-banner"
+      class="flex flex-col sm:flex-row items-center justify-center transform-gpu"
+    >
+      <NewLogo
+        class="w-16 sm:w-20 text-black"
+        iconFill="white"
+        iconStroke="black"
+      />
+      <Title
+        class="sm:mt-0 mt-4 sm:ml-6 duration-150"
+        size={{
+          default: AvailableSizeKeys["4xl"],
+          sm: AvailableSizeKeys["6xl"],
+        }}
+      />
+    </div>
+
+    <h2 class="text-xl text-center mt-7">
+      Crypt Hunt 2024 is over! Thank you for participating. Stay tuned for next
+      year!
+    </h2>
+
+    <!-- <a
+      id="get-started"
+      class="text-white cursor-not-allowed text-xl sm:text-4xl bg-black dark:invert dark:hover:invert-0 hover:invert duration-150 hover:scale-105 py-2 px-4 rounded-tl-md rounded-br-md mt-4 sm:mt-8 sm:ml-6 border border-neutral-700"
+      >{message}</a
+    > -->
+  </section>
+</MainLayout>
+
+<style define:vars={{ invertCl: !!true ? 1 : 1 }}>
+  #main:has(#get-started) #ch-banner {
+    @apply duration-150;
+  }
+  #main:has(#get-started:hover) #ch-banner {
+    @apply invert scale-105;
+    filter: invert(var(--invertCl));
+    -webkit-filter: invert(var(--invertCl));
+  }
+</style>
